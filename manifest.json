@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "built_at": "2026-10-12T23:19:41.658720+00:00",
+  "source_archive_sha256": "dfc86b06d1259fd13f3faade0c4f415d9ae0cf4e36c1dd966d887853331a3c3f",
+  "files": {
+    "index.html": {
+      "size": 612137,
+      "sha256": "3ba97eb639c7241b3fc9d31faa71f41dcf691439d027d10a178ccaaab0efff67"
+    },
+    "bridge.js": {
+      "size": 9298,
+      "sha256": "a7d86bc9d89d9e40e57c2eb456ce95c99c889f96fc2ec9b0fda60f246c357d5a"
+    },
+    "media/bat.mp4": {
+      "size": 15072781,
+      "sha256": "674c69d2219ca3e4f2d883f91cb5ac76ae23345de10e25ed43c64c95ea0d17b0"
+    },
+    "media/dog.mp4": {
+      "size": 7090918,
+      "sha256": "56c23dd2d4ae813fd2dbf5b8ad0be2a3333e431260089febc77162d6899407f5"
+    },
+    "media/dragon.png": {
+      "size": 143566,
+      "sha256": "b9e63565be1ab3b7e3e62d59874449d291411971497abded70c7d2fa9d454a9e"
+    }
+  }
+}
