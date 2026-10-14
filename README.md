@@ -1,7 +1,9 @@
 # Lumen onboarding game
 
-Static Telegram Mini App distribution built from the product handoff of 12 October 2026. Open from the Lumen Stable bot to return the chosen form to your chat.
+Author delivery: Lumen basic battles, 14 October 2026. Built from the approved archive with integrity checks; author text, game logic, progress and media are preserved. Telegram SDK and bridge are injected, and the sheet confirmation uses the same selection path as the result card.
 
-No user history, tokens or launch records are hosted here. A per-launch opaque value travels only in the URL fragment; Telegram delivers the selected canonical form to the bot for server-side validation.
+Live site: https://piofant.github.io/lumen-onboarding-game/
 
-Build sources: private Lumen code repository, scripts/build_onboarding_game.py. Input/output hashes are recorded in manifest.json. Author-provided game content and media are retained.
+Open from `/game` in `@lumen_charecter_bot` to send the selected companion into onboarding. The server issues an owner-bound launch; the client sends only `{v:1,launch,form}`. Browser scores and favorites do not become taste-profile data.
+
+`manifest.json` records the source revision, source SHA-256 and hashes of the published files. Previous releases remain in git history. Never place user history, server state or launch capabilities in this repository.
