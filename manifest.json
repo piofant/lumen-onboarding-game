@@ -1,19 +1,23 @@
 {
   "version": 1,
   "game_protocol_version": 1,
-  "built_at": "2026-10-14T22:32:05.807242+00:00",
+  "built_at": "2026-10-16T15:58:18.525316+00:00",
   "source_archive_sha256": "6736b0814d26bf558b996a576bb8b2470832a217351e48021dc85a2ca8f906c1",
   "source_version": "lumen-battles-2026-10-14",
   "source_date": "2026-10-14",
   "source_html_sha256": "231d0314d739561d8779b2b23c10e834845a3befd80c3cbe1deb81c944fd3202",
   "files": {
     "index.html": {
-      "size": 620935,
-      "sha256": "a286e1e979374781ecd178618c0995c79dc9c42f1b80512779fbd5cebead10d2"
+      "size": 620976,
+      "sha256": "5a724b88d6ecab2a4d9a7462ae694773d50f84a662c788d5697bcba12d726ab2"
     },
     "bridge.js": {
       "size": 9298,
       "sha256": "a7d86bc9d89d9e40e57c2eb456ce95c99c889f96fc2ec9b0fda60f246c357d5a"
+    },
+    "layout.css": {
+      "size": 1410,
+      "sha256": "6756fa9ef7ff182829f03d226495fd95bdd943507f4472264d06f93791634f84"
     },
     "media/bat.mp4": {
       "size": 15072781,

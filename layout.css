@@ -1,0 +1,57 @@
+/* Layout and transition stabilization for Telegram Onboarding Game */
+
+/* Isolate duel stacking and establish local layout containment boundary */
+.duel {
+  position: relative;
+  isolation: isolate;
+  contain: layout style;
+}
+
+/* Contain card button rendering, enforce GPU layer isolation and prevent stale paint bleed */
+button.opt,
+.opt {
+  position: relative;
+  overflow: hidden;
+  contain: layout paint;
+  isolation: isolate;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  transform: translateZ(0);
+  box-sizing: border-box;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  /* Only transition border-color and background by default; prevent transform/opacity interpolation across pair swaps */
+  transition: border-color .2s, background-color .2s;
+}
+
+/* Active feedback states with hardware-accelerated transitions */
+button.opt.win,
+.opt.win {
+  transform: scale(1.02) translateZ(0);
+  transition: transform .15s ease-out, border-color .2s, background-color .2s;
+}
+
+button.opt.lose,
+.opt.lose {
+  opacity: .35;
+  transition: opacity .2s ease-out;
+}
+
+/* Ensure separator stacking context */
+.or {
+  position: relative;
+  z-index: 1;
+}
+
+/* Respect user motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  button.opt,
+  .opt,
+  button.opt.win,
+  .opt.win,
+  button.opt.lose,
+  .opt.lose {
+    transition: none !important;
+    transform: none !important;
+  }
+}
