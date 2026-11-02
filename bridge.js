@@ -11,6 +11,8 @@
  * 7. On transmission errors, allows retries without permanently locking duplicate guard.
  * 8. Prevents duplicate submissions once a choice has successfully been transmitted.
  * 9. Displays friendly, non-technical notices for outside Telegram or missing launch context.
+ * 10. On pages with naming screens (startOb + LumenGameState), sends the choice together with
+ *     both names when the user leaves «А как мне тебя называть?», instead of the in-game onboarding.
  */
 
 (function(root, factory) {
@@ -105,21 +107,30 @@
     return typeof tg.WebApp.sendData === 'function';
   }
 
+  function cleanName(value) {
+    return typeof value === 'string' ? value.trim().replace(/\s+/g, ' ') : '';
+  }
+
   /**
-   * Construct frozen payload object.
+   * Construct frozen payload object. Names are attached only when the page has naming screens.
    */
-  function buildPayload(nonce, formId) {
+  function buildPayload(nonce, formId, names) {
     if (!nonce || typeof nonce !== 'string' || !NONCE_REGEX.test(nonce)) {
       throw new Error('Missing or invalid launch nonce');
     }
     if (!CANONICAL_SET.has(formId)) {
       throw new Error('Unknown canonical form: ' + formId);
     }
-    return Object.freeze({
+    const payload = {
       v: 1,
       launch: nonce,
       form: formId
-    });
+    };
+    if (names) {
+      payload.lumen_name = cleanName(names.lumenName);
+      payload.user_name = cleanName(names.userName);
+    }
+    return Object.freeze(payload);
   }
 
   /**
@@ -174,7 +185,7 @@
     /**
      * Intercept and validate choice before any DOM/state updates occur.
      */
-    function interceptChoice(formId) {
+    function checkChoice(formId) {
       if (submitted) {
         return { ok: false, reason: 'duplicate_ignored', submittedForm: submittedForm };
       }
@@ -189,8 +200,14 @@
         displayNotice(USER_MSG_NO_CONTEXT, true);
         return { ok: false, reason: 'unsupported_context_or_missing_nonce', form: formId };
       }
+      return { ok: true, form: formId };
+    }
 
-      const payload = buildPayload(nonce, formId);
+    function interceptChoice(formId, names) {
+      const check = checkChoice(formId);
+      if (!check.ok) return check;
+
+      const payload = buildPayload(nonce, formId, names);
 
       try {
         tg.WebApp.sendData(JSON.stringify(payload));
@@ -209,8 +226,30 @@
       }
     }
 
-    // Hook selectLumen: guard executes BEFORE original UI mutations
-    if (win && typeof win.selectLumen === 'function') {
+    const namingMode = !!(win && typeof win.startOb === 'function'
+      && typeof win.LumenGameState === 'function');
+
+    if (namingMode && typeof win.selectLumen === 'function') {
+      // Choosing only opens the naming screens; nothing is sent yet.
+      const origSelectLumen = win.selectLumen;
+      win.selectLumen = function(id) {
+        const outcome = checkChoice(id);
+        if (!outcome.ok) return outcome;
+        return origSelectLumen.apply(this, arguments);
+      };
+      // Leaving «А как мне тебя называть?» (continue or skip) sends the choice with both
+      // names and closes the app; the bot runs the rest of the acquaintance in chat.
+      win.startOb = function() {
+        let state = null;
+        try { state = win.LumenGameState(); } catch (_) {}
+        if (!state || typeof state !== 'object') {
+          displayNotice(USER_MSG_SEND_ERROR, true);
+          return { ok: false, reason: 'missing_game_state' };
+        }
+        return interceptChoice(state.form, { lumenName: state.lumenName, userName: state.userName });
+      };
+    } else if (win && typeof win.selectLumen === 'function') {
+      // Hook selectLumen: guard executes BEFORE original UI mutations
       const origSelectLumen = win.selectLumen;
       win.selectLumen = function(id) {
         const outcome = interceptChoice(id);
