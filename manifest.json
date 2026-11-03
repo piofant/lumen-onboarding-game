@@ -1,19 +1,19 @@
 {
   "version": 1,
   "game_protocol_version": 1,
-  "built_at": "2026-11-02T15:29:48.030648+00:00",
-  "source_archive_sha256": "a6a223e57f7e94b0c7fb4f1caf9ef9c8aded6eebd86faaba99b47c276e9f0b07",
-  "source_version": "lumen-battles-2026-11-02",
-  "source_date": "2026-11-02",
-  "source_html_sha256": "a6b17b11454019313a759d071cb3c76b374bb506bcf756dd36a840fec326ca7f",
+  "built_at": "2026-11-03T06:43:35.585416+00:00",
+  "source_archive_sha256": "3533a6af6b82021e55aa116081fe8a03ccae058378e8833da893a653c772bcaf",
+  "source_version": "lumen-battles-2026-11-03",
+  "source_date": "2026-11-03",
+  "source_html_sha256": "521699593bf25394d624ae79fd3bf7d529ad349cdbe794d3b62b180b92b4523e",
   "files": {
     "index.html": {
-      "size": 642512,
-      "sha256": "8492da2e1889f86132f4f8a19a6cd54fa2486958fc856c92789ff5579c5ad972"
+      "size": 630480,
+      "sha256": "434a52f65cb8576f9a937d0493cbf4d6123ebc6c904df9672a3d2235a26501cd"
     },
     "bridge.js": {
-      "size": 11123,
-      "sha256": "cc828f171126e77b924c662dd5b9070f14167325e9ba3b0006aa6fc6bd36de64"
+      "size": 13445,
+      "sha256": "a1a6dd0b77ec8fac7244bd82f5b8add4799d453aa8536427e7ece1f50d8d1ad1"
     },
     "layout.css": {
       "size": 1410,

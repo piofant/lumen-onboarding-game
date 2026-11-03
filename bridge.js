@@ -13,6 +13,8 @@
  * 9. Displays friendly, non-technical notices for outside Telegram or missing launch context.
  * 10. On pages with naming screens (startOb + LumenGameState), sends the choice together with
  *     both names when the user leaves «А как мне тебя называть?», instead of the in-game onboarding.
+ * 11. On pages that end on «Теперь я — …!» (no startOb), sends the choice and the companion
+ *     name shortly after that screen is shown; the bot asks the user's name in chat.
  */
 
 (function(root, factory) {
@@ -52,6 +54,7 @@
   const USER_MSG_NO_CONTEXT = 'Не удалось сохранить выбор в чате. Открой игру заново по кнопке в Telegram.';
   const USER_MSG_SEND_ERROR = 'Не удалось отправить выбор. Пожалуйста, попробуй открыть игру заново в Telegram.';
   const USER_MSG_SUCCESS = 'Выбор отправлен в чат!';
+  const USER_MSG_RETRY = 'Не удалось отправить выбор. Нажми на экран, чтобы попробовать ещё раз.';
 
   /**
    * Parse launch nonce strictly from fragment.
@@ -128,7 +131,8 @@
     };
     if (names) {
       payload.lumen_name = cleanName(names.lumenName);
-      payload.user_name = cleanName(names.userName);
+      // No user-name screen on the page → no key, so the bot asks in chat instead of skipping.
+      if (typeof names.userName === 'string') payload.user_name = cleanName(names.userName);
     }
     return Object.freeze(payload);
   }
@@ -226,10 +230,59 @@
       }
     }
 
-    const namingMode = !!(win && typeof win.startOb === 'function'
-      && typeof win.LumenGameState === 'function');
+    const hasGameState = !!(win && typeof win.LumenGameState === 'function');
+    const namingMode = hasGameState && typeof win.startOb === 'function';
+    const companionOnlyMode = hasGameState && !namingMode && typeof win.show === 'function';
+    const namedDelayMs = typeof options.namedDelayMs === 'number' ? options.namedDelayMs : 900;
+    const schedule = options.setTimeout || (win && win.setTimeout ? win.setTimeout.bind(win) : setTimeout);
 
-    if (namingMode && typeof win.selectLumen === 'function') {
+    function sendFromGameState() {
+      let state = null;
+      try { state = win.LumenGameState(); } catch (_) {}
+      if (!state || typeof state !== 'object') {
+        displayNotice(USER_MSG_SEND_ERROR, true);
+        return { ok: false, reason: 'missing_game_state' };
+      }
+      return interceptChoice(state.form, { lumenName: state.lumenName, userName: state.userName });
+    }
+
+    if (companionOnlyMode && typeof win.selectLumen === 'function') {
+      const origSelectLumen = win.selectLumen;
+      win.selectLumen = function(id) {
+        const outcome = checkChoice(id);
+        if (!outcome.ok) return outcome;
+        return origSelectLumen.apply(this, arguments);
+      };
+      // Let «Теперь я — …!» show for a moment, then send; sendData closes the app.
+      const origShow = win.show;
+      let sendScheduled = false;
+      let retryArmed = false;
+      function sendNamed() {
+        const outcome = sendFromGameState();
+        if (outcome.ok || submitted) return outcome;
+        sendScheduled = false;
+        // The game offers no way back from this screen: a tap on it retries the send.
+        const named = doc && doc.getElementById('s-named');
+        if (named && typeof named.addEventListener === 'function') {
+          displayNotice(USER_MSG_RETRY, true);
+          if (!retryArmed) {
+            retryArmed = true;
+            named.addEventListener('click', function() {
+              if (!submitted && !sendScheduled) sendNamed();
+            });
+          }
+        }
+        return outcome;
+      }
+      win.show = function(id) {
+        const result = origShow.apply(this, arguments);
+        if (id === 's-named' && !sendScheduled && !submitted) {
+          sendScheduled = true;
+          schedule(sendNamed, namedDelayMs);
+        }
+        return result;
+      };
+    } else if (namingMode && typeof win.selectLumen === 'function') {
       // Choosing only opens the naming screens; nothing is sent yet.
       const origSelectLumen = win.selectLumen;
       win.selectLumen = function(id) {
@@ -240,13 +293,7 @@
       // Leaving «А как мне тебя называть?» (continue or skip) sends the choice with both
       // names and closes the app; the bot runs the rest of the acquaintance in chat.
       win.startOb = function() {
-        let state = null;
-        try { state = win.LumenGameState(); } catch (_) {}
-        if (!state || typeof state !== 'object') {
-          displayNotice(USER_MSG_SEND_ERROR, true);
-          return { ok: false, reason: 'missing_game_state' };
-        }
-        return interceptChoice(state.form, { lumenName: state.lumenName, userName: state.userName });
+        return sendFromGameState();
       };
     } else if (win && typeof win.selectLumen === 'function') {
       // Hook selectLumen: guard executes BEFORE original UI mutations

@@ -183,7 +183,7 @@ video.chosen-image{object-fit:contain;border-radius:20px;}
       <p class="or">или</p>
       <button class="opt" id="optB" type="button"><b></b><span></span></button>
     </div>
-    <div class="timer" aria-hidden="true"><i id="timer"></i></div>
+    <div class="timer" aria-hidden="true"><i id="timer"></i></div><button class="btn ghost" id="end-battle" type="button" hidden>Перейти к выбору люмена</button>
     <p class="name-note">Не знаешь, что выбрать? Дождись следующей пары.</p>
   </section>
 
@@ -209,33 +209,8 @@ video.chosen-image{object-fit:contain;border-radius:20px;}
 </form></section>
 <section id="s-named" class="stack" hidden>
 <div class="name-portrait" id="named-media"></div><h1 id="named-title"></h1>
-<form id="human-form" class="name-form"><label for="human-name" class="human-label">А как мне тебя называть?</label>
-<input id="human-name" class="name-input" placeholder="Твоё имя" maxlength="60" autocomplete="given-name">
-<button class="btn" id="human-next" type="submit" disabled>Продолжить</button><button class="ob-skip" id="human-skip" type="button">Пропустить</button></form>
+<p class="muted">Теперь мы знакомы!</p>
 </section>
-<section id="s-onboarding" class="stack" hidden>
-<header class="ob-header"><div id="ob-avatar"></div><span id="ob-companion"></span><button id="ob-finish" type="button">Закончить</button></header>
-<p class="ob-intro" id="ob-intro"></p>
-<div class="ob-progress" aria-label="Ход знакомства"><span></span><span></span><span></span></div>
-<p class="eyebrow" id="ob-count"></p>
-<form id="ob-form" class="name-form"><label id="ob-question" for="ob-answer"></label><p id="ob-help" class="muted"></p>
-<textarea id="ob-answer" class="name-input" placeholder="Напиши свой ответ" maxlength="2000" rows="4"></textarea>
-<button id="ob-next" type="submit" class="btn" disabled>Отправить</button>
-<button id="ob-skip" class="ob-skip" type="button">Пропустить</button></form>
-<button id="ob-profile-open" class="btn ghost" type="button">Посмотри в профиле</button>
-</section>
-<section id="s-ob-profile" class="stack" hidden>
-<p class="eyebrow">Пример с тестовой историей</p>
-<h1>Вот с чем могу помочь</h1>
-<p class="ob-intro">Вот что могу предложить по истории кино, книг и музыки. Всё подходит? Можешь поправить или дополнить.</p>
-<p id="ob-profile-copy"></p>
-<label class="sr-only" for="ob-profile-text">Поправь описание</label><textarea id="ob-profile-text" class="name-input" maxlength="3000" hidden></textarea>
-<button id="ob-profile-accept" class="btn" type="button">Да, оставь так</button>
-<button id="ob-profile-edit" class="btn ghost" type="button">Поправить</button>
-<button id="ob-profile-back" class="name-back" type="button">Вернуться к вопросам</button>
-</section>
-<section id="s-ob-done" class="stack" hidden><div class="name-portrait" id="ob-done-media"></div>
-<div id="ob-done-copy"></div><button id="ob-edit" type="button" class="btn ghost">Изменить ответы</button></section>
 <section id="s-world" class="stack" hidden>
     <div id="chosen-media"></div>
     <h1 id="chosen-name"></h1>
@@ -317,7 +292,7 @@ function scores() {
   return L.map(l => {
     const v = SCALES.reduce((acc, s, k) => acc + (l.poles[k] === s.a ? sh[k] : 1 - sh[k]), 0) / 3;
     return { l, pct: Math.round(v * 100), exact:v };
-  }).sort((a, b) => b.exact - a.exact);
+  }).sort((a, b) => Math.abs(b.exact-a.exact)>1e-12?b.exact-a.exact:tiePriority(a.l,pts)-tiePriority(b.l,pts));
 }
 
 // Сцена: на стенде люмен остаётся неопределившимся (концепт Null). Форму он принимает только в приложении, после онбординга
@@ -336,7 +311,7 @@ function stage(leader, strength) {
 function show(id) {
  $('signal-hub').hidden=id!=='s-game';battleProgress();
   $('stage').hidden=['s-world','s-name','s-named','s-onboarding','s-ob-done','s-ob-profile'].includes(id);
-  ['s-hello', 's-game', 's-favorite', 's-result', 's-world', 's-name', 's-named', 's-onboarding', 's-ob-done', 's-ob-profile'].forEach(s => { $(s).hidden = s !== id; });
+  ['s-hello', 's-game', 's-favorite', 's-result', 's-world', 's-name', 's-named'].forEach(s => { $(s).hidden = s !== id; });
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -351,11 +326,21 @@ const EASTER_BANK=[
  {title:'Окрошка на квасе или на кефире?',options:['На квасе','На кефире'],reaction:'Так. Главное — теперь не поссориться.'},
  {title:'Пицца с ананасами — норм или стрём?',options:['Норм','Стрём'],reaction:'Итальянцам пока не рассказываем.'}
 ];
+let tieStopAt=null,rematchSkips=new Map();
 let easterActive=false,easterDone=false,easterAt=4,easter=null,refinementDone=false,typingAssessment=null;
 let idx=0, busy=false, timer=null, currentPair=null, chosenPairIds=new Set(), usedKinds={}, shownMedia=new Set(), axisQueue=[], replacements=0, selectedRefs=[], finalePairs=null, finaleIndex=0, tournamentWinners=[], favorite=null, battleBoosts={}, evidence=[], refinement=false, refinementCount=0, battleAxisTotals={};
 function shuffled(a){return a.map(v=>({v,k:Math.random()})).sort((a,b)=>a.k-b.k).map(x=>x.v);}
-function startGame(){easterActive=false;easterDone=false;easterAt=3+Math.floor(Math.random()*3);easter=EASTER_BANK[Math.floor(Math.random()*EASTER_BANK.length)];refinementDone=false;typingAssessment=null;$('s-game').querySelector('h2').textContent='Что тебе ближе?';Object.keys(pts).forEach(k=>pts[k]=0);picks=0;idx=0;selectedRefs=[];finalePairs=null;finaleIndex=0;tournamentWinners=[];favorite=null;battleBoosts={};evidence=[];refinement=false;refinementCount=0;battleAxisTotals={};chosenPairIds=new Set();usedKinds={};shownMedia=new Set();axisQueue=Array.from({length:3},()=>shuffled([0,1,2])).flat();update();nextDuel();}
-function rankFrom(values){const shares=SCALES.map(s=>(.5+2*values[s.a])/(1+2*values[s.a]+2*values[s.b]));return L.map(l=>({l,value:SCALES.reduce((sum,s,i)=>sum+(l.poles[i]===s.a?shares[i]:1-shares[i]),0)/3})).sort((a,b)=>b.value-a.value);}
+function startGame(){tieStopAt=null;rematchSkips=new Map();easterActive=false;easterDone=false;easterAt=3+Math.floor(Math.random()*3);easter=EASTER_BANK[Math.floor(Math.random()*EASTER_BANK.length)];refinementDone=false;typingAssessment=null;$('s-game').querySelector('h2').textContent='Что тебе ближе?';Object.keys(pts).forEach(k=>pts[k]=0);picks=0;idx=0;selectedRefs=[];finalePairs=null;finaleIndex=0;tournamentWinners=[];favorite=null;battleBoosts={};evidence=[];refinement=false;refinementCount=0;battleAxisTotals={};chosenPairIds=new Set();usedKinds={};shownMedia=new Set();axisQueue=Array.from({length:3},()=>shuffled([0,1,2])).flat();update();nextDuel();}
+function rankFrom(values){const shares=SCALES.map(s=>(.5+2*values[s.a])/(1+2*values[s.a]+2*values[s.b]));return L.map(l=>({l,value:SCALES.reduce((sum,s,i)=>sum+(l.poles[i]===s.a?shares[i]:1-shares[i]),0)/3})).sort((a,b)=>Math.abs(b.value-a.value)>1e-12?b.value-a.value:tiePriority(a.l,values)-tiePriority(b.l,values));}
+// Resolve exact ties consistently from the dominant taste profile, never fresh randomness.
+function tiePriority(l,values){const profile=SCALES.map(s=>values[s.a]>=values[s.b]?s.a:s.b).join('');let h=2166136261;for(const ch of profile+'|'+l.id)h=Math.imul(h^ch.charCodeAt(0),16777619);return h>>>0;}
+function clearLeader(){
+ const rank=rankFrom(pts),leader=rank[0].l.id;if(rank[0].value-rank[1].value<.03)return false;
+ for(const e of evidence){const v={...pts};v[e.pole]-=e.weight;if(rankFrom(v)[0].l.id!==leader)return false;}
+ for(const f of [.5,1.5]){const v={...pts};evidence.filter(e=>e.battle).forEach(e=>v[e.pole]+=(f-1)*e.weight);if(rankFrom(v)[0].l.id!==leader)return false;}
+ return true;
+}
+function tiedSecond(){const rank=rankFrom(pts);return clearLeader()&&Math.abs(rank[1].value-rank[2].value)<1e-9;}
 function pairKey(values){return rankFrom(values).slice(0,2).map(x=>x.l.id).sort().join('|');}
 function typingStable(){
  const rank=rankFrom(pts),key=pairKey(pts);
@@ -373,11 +358,13 @@ function clarificationAxis(){
   count:pts[s.a]+pts[s.b],available:availablePairs(i).length>0
  })).filter(x=>x.available).sort((a,b)=>Number(b.separates)-Number(a.separates)||a.margin-b.margin||a.count-b.count)[0]?.i;
 }
-function completeRefinement(reason){refinement=false;refinementDone=true;typingAssessment={stable:typingStable(),reason,extraAnswers:refinementCount};prepareFinale();}
+function completeRefinement(reason){refinement=false;refinementDone=true;typingAssessment={stable:typingStable(),reason,extraAnswers:refinementCount,equivalentSecond:reason==='equivalent-second'};prepareFinale();}
 function nextDuel(){
  if(idx<9){if(idx>=easterAt&&!easterDone){drawEaster();return;}drawPair();return;}
  if(!refinementDone){
   if(typingStable()){completeRefinement('stable');return;}
+  if(tieStopAt===null&&tiedSecond())tieStopAt=refinementCount+1;
+  if(tieStopAt!==null&&refinementCount>=tieStopAt&&clearLeader()){completeRefinement('equivalent-second');return;}
   if(refinementCount>=MAX_REFINEMENTS){completeRefinement('mixed');return;}
   const axis=clarificationAxis();if(axis===undefined){completeRefinement('exhausted');return;}
   refinement=true;drawPair(axis);return;
@@ -389,7 +376,8 @@ function drawEaster(){
  easterActive=true;currentPair=shuffled(easter.options.map(title=>['',title,'']));renderDuel(false);$('s-game').querySelector('h2').textContent=easter.title;
 }
 const RESERVE_TITLES=[];
-function eligiblePair(p){return ![p[2],p[5]].some(x=>x.startsWith('жанр'))&&!selectedRefs.some(r=>r[1]===p[1]||r[1]===p[4])&&!RESERVE_TITLES.some(t=>p[1]===t||p[4]===t);}
+function titleFamily(t){return ['Песни Ленинграда','Экспонат — Ленинград'].includes(t)?'ленинград':t;}
+function eligiblePair(p){return ![p[2],p[5]].some(x=>x.startsWith('жанр'))&&!selectedRefs.some(r=>titleFamily(r[1])===titleFamily(p[1])||titleFamily(r[1])===titleFamily(p[4]))&&!RESERVE_TITLES.some(t=>p[1]===t||p[4]===t);}
 function drawPair(axis=axisQueue[idx]){
  let options=PAIR_BANK.map((p,i)=>({p,i})).filter(x=>SCALES[axis].a===x.p[0]&&eligiblePair(x.p)&&!chosenPairIds.has(x.i));
  if(!options.length){chosenPairIds=new Set([...chosenPairIds].filter(i=>PAIR_BANK[i][0]!==SCALES[axis].a));options=PAIR_BANK.map((p,i)=>({p,i})).filter(x=>SCALES[axis].a===x.p[0]&&eligiblePair(x.p));}
@@ -401,7 +389,7 @@ function drawPair(axis=axisQueue[idx]){
  renderDuel(false);if(refinement)$('s-game').querySelector('h2').textContent='А здесь?';
 }
 // Fresh card nodes avoid retaining painted content from the previous pair on mobile browsers.
-function renderDuel(finale){$('rematch-note').hidden=true;if(!finale)$('s-game').querySelector('h2').textContent=['Что тебе ближе?','А здесь?'][idx%2]; ['optA','optB'].forEach((id,i)=>{const old=$(id), ref=currentPair[i],el=document.createElement('button');el.id=id;el.type='button';el.className='opt';el.dataset.pole=ref[0];const title=document.createElement('b'),detail=document.createElement('span');title.textContent=ref[1];detail.textContent=ref[2];el.append(title,detail);el.addEventListener('click',e=>choose(e.currentTarget));old.replaceWith(el);});
+function renderDuel(finale){$('end-battle').hidden=!(finale&&[...rematchSkips.values()].some(n=>n>=2));$('rematch-note').hidden=true;if(!finale)$('s-game').querySelector('h2').textContent=['Что тебе ближе?','А здесь?'][idx%2]; ['optA','optB'].forEach((id,i)=>{const old=$(id), ref=currentPair[i],el=document.createElement('button');el.id=id;el.type='button';el.className='opt';el.dataset.pole=ref[0];const title=document.createElement('b'),detail=document.createElement('span');title.textContent=ref[1];detail.textContent=ref[2];el.append(title,detail);el.addEventListener('click',e=>choose(e.currentTarget));old.replaceWith(el);});
  busy=false;
  clearTimeout(timer);const bar=$('timer');bar.style.transition='none';bar.style.transform='scaleX(1)';requestAnimationFrame(()=>requestAnimationFrame(()=>{bar.style.transition='transform 7s linear';bar.style.transform='scaleX(0)';}));timer=setTimeout(()=>choose(null),7000);
 }
@@ -428,7 +416,7 @@ function advanceTournament(refs){
  if(refs.length===1){favorite=refs[0].slice();finish();return;}
  setTournamentRound(refs);drawFinale();
 }
-function prepareFinale(){advanceTournament(selectedRefs);}
+function prepareFinale(){advanceTournament(selectedRefs.slice(0,9));}
 function drawFinale(){currentPair=shuffled(finalePairs[finaleIndex]);renderDuel(true);
  const final=finalePairs.length===1&&tournamentWinners.length===0;
  const first=selectedRefs.length===finalePairs.length*2+tournamentWinners.length&&finaleIndex===0;
@@ -440,10 +428,11 @@ function reinforceBattle(winner,loser){
  SCALES.forEach(s=>{for(const pole of [s.a,s.b]){const opposite=pole===s.a?s.b:s.a;
  if(wp.has(pole)&&!wp.has(opposite)&&lp.has(opposite)&&!lp.has(pole)){
  const key=winner[1]+'|'+pole;const previous=battleBoosts[key]||0;const axisPrevious=battleAxisTotals[s.a]||0;const weight=Math.max(0,Math.min(.25,.5-previous,1-axisPrevious));if(weight>0){
- const protectedPair=typingStable()?pairKey(pts):null;
+ const wasStrict=typingStable(),equivalent=typingAssessment?.equivalentSecond&&clearLeader();
+ const protectedPair=wasStrict||equivalent?pairKey(pts):null;
  pts[pole]+=weight;evidence.push({pole,weight,battle:true,title:winner[1]});
  // A rematch can strengthen evidence, but cannot undo an already robust selection.
- if(protectedPair&&(pairKey(pts)!==protectedPair||!typingStable())){pts[pole]-=weight;evidence.pop();}
+ if(protectedPair&&(pairKey(pts)!==protectedPair||(wasStrict?!typingStable():!clearLeader()))){pts[pole]-=weight;evidence.pop();}
  else{battleBoosts[key]=previous+weight;battleAxisTotals[s.a]=axisPrevious+weight;}
  }
  }}});
@@ -455,7 +444,7 @@ function choose(el){
   if(el)el.classList.add('win');
   setTimeout(nextDuel,el?380:250);return;
  }
- if(!el){setTimeout(()=>{if(refinement)nextDuel();else if(finalePairs)drawFinale();else drawPair();},250);return;}
+ if(!el){setTimeout(()=>{if(refinement)nextDuel();else if(finalePairs){const key=currentPair.map(r=>r[1]).sort().join('|');rematchSkips.set(key,(rematchSkips.get(key)||0)+1);const deferred=finalePairs.splice(finaleIndex,1)[0];finalePairs.push(deferred);drawFinale();}else drawPair();},250);return;}
  const winner=currentPair[el.id==='optA'?0:1],loser=currentPair[el.id==='optA'?1:0];
  if(finalePairs){reinforceBattle(winner,loser);tournamentWinners.push(winner.slice());finaleIndex++;}
  else{pts[el.dataset.pole]++;evidence.push({pole:el.dataset.pole,weight:1,battle:false,title:winner[1]});picks++;selectedRefs.push(winner.slice());idx++;if(refinement)refinementCount++;}
@@ -517,127 +506,13 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('sheet'
 function reset() { closeSheet(); lastScores = null; clearTimeout(timer); Object.keys(pts).forEach(k => { pts[k] = 0; }); picks = 0; update(); show('s-hello'); }
 
 
+$('end-battle').addEventListener('click',()=>{clearTimeout(timer);busy=true;renderResult();revealResult();});
 $('go-game').addEventListener('click', () => { show('s-game'); startGame(); });
 update();
 show('s-hello');
-
-const OB_QUESTIONS=[
- {placeholder:'Расскажи, что для тебя актуально сейчас — это я запомню в первую очередь',key:'current',title:'Что сейчас смотришь, читаешь или слушаешь? Во что играешь?',help:''},
- {placeholder:'Например, бег, выпечка, настольные игры',key:'interests',title:'Есть ещё какие-то увлечения, про которые мне стоит помнить?',help:''},
- {placeholder:'Например, продолжение сериала, новый альбом или игра',key:'awaiting',title:'А чего ждёшь из новинок?',help:'Запомню, что тебе интересно, чтобы учитывать это в рекомендациях.'}
-];
-let obIndex=0,obHuman='',obAnswers={},obBusy=false,obMode='questions',obProfile='';
-const OB_DEMO_PROFILE='Могу подбирать кино с оглядкой на «Матрицу», «Зловещих мертвецов» и «Аркейн» — и искать новые ужасы.\n\nВ книгах могу искать что-то в духе «Пикника на обочине», «Дома, в котором…» и «Ста лет одиночества».\n\nА в музыке — находить новые записи и концерты Хмырова и Anacondaz.';
-function openObProfile(){
- if(!obProfile)obProfile=OB_DEMO_PROFILE;
- $('ob-profile-copy').textContent=obProfile;$('ob-profile-copy').hidden=false;
- $('ob-profile-text').value=obProfile;$('ob-profile-text').hidden=true;
- $('ob-profile-edit').hidden=false;$('ob-profile-accept').disabled=false;$('ob-profile-accept').textContent='Да, оставь так';
- show('s-ob-profile');
-}
-function saveOb(){try{sessionStorage.setItem('lumen-short-onboarding',JSON.stringify({character:confirmedIdentity,human:obHuman,answers:obAnswers,mode:obMode,profile:obProfile}));}catch{}}
-function renderOb(){
- obMode='questions';$('ob-profile-open').hidden=obIndex!==0;
- const q=OB_QUESTIONS[obIndex];
- $('ob-answer').placeholder=q.placeholder;$('ob-question').textContent=q.title;$('ob-help').textContent=q.help;$('ob-help').hidden=!q.help;
- $('ob-count').textContent=`Вопрос ${obIndex+1} из 3`;
- $('ob-intro').hidden=obIndex!==0;
- $('ob-intro').textContent=(obHuman?`Привет, ${obHuman}! `:'')+'Сейчас задам три коротких вопроса, чтобы начать помогать. Любой можно пропустить.';
- $('ob-answer').value=obAnswers[q.key]?.text||'';$('ob-next').disabled=!$('ob-answer').value.trim();
- document.querySelectorAll('.ob-progress span').forEach((el,i)=>el.classList.toggle('active',i<=obIndex));
- show('s-onboarding');
-}
-function startOb(){obHuman=$('human-name').value.trim();$('ob-avatar').innerHTML=characterMedia(confirmedIdentity.id);$('ob-companion').textContent=confirmedIdentity.name;obIndex=0;saveOb();renderOb();}
-// Summary contract: never concatenate a free-form answer with a sentence stem.
-// Extract only explicit supported facts. Separate requests, negation and opinions.
-// Unknown or ambiguous wording gets a neutral action, never an invented preference.
-// This local prototype has no semantic model and cannot promise reminders.
-function obClean(text){return (text||'').trim().replace(/[.!?]+$/u,'');}
-function obNoInterest(text){return /^(нет|ничего|пока ничего|не жду|ничего не жду|не знаю|хз|не хочу)$/iu.test(obClean(text));}
-function obCurrentSummary(text){
- if(obNoInterest(text))return '';
- const verbs={смотрю:'смотришь',читаю:'читаешь',слушаю:'слушаешь',играю:'играешь'};
- const clauses=obClean(text).split(/(?:[.!?;]+|\n+|,?\s+(?:и\s+)?(?=(?:я\s+)?(?:смотрю|читаю|слушаю|играю)\s))/iu);
- const facts=[];
- for(const clause of clauses){
-  const match=clause.trim().match(/^(?:я\s+)?(смотрю|читаю|слушаю|играю)\s+(.+)$/iu);
-  if(!match)continue;
-  const detail=match[2].trim().replace(/,\s*(?:новую|старую|последнюю)\s+экранизацию.*$/iu,'');
-  // Retain a simple object only, not a trailing evaluation, command or explanation.
-  if(detail.length>100||/[,;:!?]|(?:^|\s)(?:но|потому|нравится|не|напомни|посоветуй|хочу|жду|люблю|смотрю|читаю|слушаю|играю)(?:\s|$)/iu.test(detail))continue;
-  facts.push(verbs[match[1].toLowerCase()]+' '+detail);
- }
- if(facts.length)return 'Ты '+facts.join(', а ещё ')+'. Можем обсудить впечатления, когда захочется.';
- return 'Можем обсудить то, что сейчас тебя увлекает, или подобрать фильм, книгу, музыку либо игру под настроение.';
-}
-function obInterestSummary(text){
- if(obNoInterest(text))return '';
- const forms={'керамика':'керамикой','керамикой':'керамикой','бег':'бегом','бегом':'бегом','выпечка':'выпечкой','настольные игры':'настольными играми','настолки':'настольными играми','рисование':'рисованием','вязание':'вязанием','фотография':'фотографией','спорт':'спортом','бокс':'боксом','файтинги':'файтингами','пилатес':'пилатесом'};
- const clean=obClean(text).toLocaleLowerCase('ru').replace(/^(?:я\s+)?(?:занимаюсь|увлекаюсь)\s+/u,'');
- const parts=clean.split(/\s*(?:,|;|\sи\s)\s*/u);
- if(parts.length&&parts.every(x=>forms[x])){
- const list=[...new Set(parts.map(x=>forms[x]))];const joined=list.length>1?list.slice(0,-1).join(', ')+' и '+list.at(-1):list[0];
- return 'Запомню, что ты увлекаешься '+joined+'. Могу искать материалы и события по твоим интересам.';
- }
- return 'Если захочешь развить тему увлечений, помогу найти материалы или подходящие занятия.';
-}
-function obPremiereTopic(text){
- const value=obClean(text).toLowerCase();
- // Be conservative around negation and contrast: a mention is not a preference.
- if(/(?:^|\s)(?:не|нет|без|кроме|разонравились)(?:\s|$)/u.test(value))return null;
- if(/ужас|хоррор/u.test(value))return {summary:'Тебе интересны новые ужасы в кино. Могу проверить ближайшие премьеры и даты выхода.',start:'Начнём с ужасов — посмотрим, что скоро выходит?'};
- if(/концерт/u.test(value))return {summary:'Могу проверить афишу концертов и помочь выбрать, куда сходить.',start:'Начнём с концертов — посмотрим ближайшие выступления?'};
- if(/сезон|сериал/u.test(value))return {summary:'Могу помочь проверить даты выхода новых сезонов и серий.',start:'Начнём с сериалов — проверим даты выхода?'};
- if(/альбом|музык/u.test(value))return {summary:'Могу помочь найти информацию о новых музыкальных релизах.',start:'Начнём с музыкальных новинок?'};
- if(/игр/u.test(value))return {summary:'Могу помочь проверить даты выхода игровых новинок.',start:'Начнём с игровых релизов?'};
- return null;
-}
-function obAwaitingSummary(text){
- if(obNoInterest(text))return '';
- const topic=obPremiereTopic(text);
- return topic?topic.summary:'Могу помочь найти информацию о новинках и проверить даты выхода. Когда решим, с чего начать, уточним детали.';
-}
-function endOb(){saveOb();$('ob-done-media').innerHTML=characterMedia(confirmedIdentity.id,'chosen-image');
- const current=obAnswers.current?.text, interests=obAnswers.interests?.text, awaiting=obAnswers.awaiting?.text;
- const paragraphs=[];
- if(obMode==='profile'){
- paragraphs.push('Спасибо, теперь есть на что ориентироваться!',...obProfile.split(/\n\s*\n/),'С чего начнём? Можем сразу подобрать что-нибудь на вечер.');
- }else{
- if(current||interests||awaiting) paragraphs.push('Спасибо! Уже есть с чего начать.');
- if(current) paragraphs.push(obCurrentSummary(current));
- if(interests) paragraphs.push(obInterestSummary(interests));
- if(awaiting) paragraphs.push(obAwaitingSummary(awaiting));
- if(awaiting&&obPremiereTopic(awaiting)) paragraphs.push(obPremiereTopic(awaiting).start);
- else if(current&&!obNoInterest(current)) paragraphs.push('Хочешь, подберём что-нибудь новое на вечер?');
- else if(interests) paragraphs.push('Начнём с идей для твоих увлечений?');
- else paragraphs.push('Можем начать с простого: подобрать фильм на вечер. Хочешь?');
- }
- $('ob-done-copy').replaceChildren(...paragraphs.filter(Boolean).map(text=>{const p=document.createElement('p');p.textContent=text;return p;}));
- show('s-ob-done');}
-function nextOb(skip){if(obBusy)return;const raw=$('ob-answer').value.trim();if(!skip&&!raw)return;obBusy=true;
- if(!skip&&/^(хватит|закончим|стоп|закончить)[.!]?$/i.test(raw)){endOb();}else{
- const noAnswer=skip||/^(хз|не знаю|не хочу|пропустить|я уже ответил[а]?)[.!]?$/i.test(raw);
- obAnswers[OB_QUESTIONS[obIndex].key]={text:noAnswer?'':raw,status:noAnswer?'skipped':'answered'};saveOb();obIndex++;if(obIndex===3)endOb();else renderOb();}
- setTimeout(()=>{obBusy=false},350);
-}
-$('human-name').addEventListener('input',()=>{$('human-next').disabled=!$('human-name').value.trim()});
-$('human-form').addEventListener('submit',e=>{e.preventDefault();if($('human-name').value.trim())startOb()});
-$('human-skip').onclick=()=>{$('human-name').value='';startOb()};
-$('ob-answer').addEventListener('input',()=>{$('ob-next').disabled=!$('ob-answer').value.trim()});
-$('ob-form').addEventListener('submit',e=>{e.preventDefault();nextOb(false)});
-$('ob-skip').onclick=()=>nextOb(true);$('ob-finish').onclick=endOb;
-$('ob-edit').onclick=()=>{if(obMode==='profile'){openObProfile();}else{obIndex=0;renderOb()}};
-$('ob-profile-open').onclick=openObProfile;
-$('ob-profile-edit').onclick=()=>{$('ob-profile-copy').hidden=true;$('ob-profile-text').hidden=false;$('ob-profile-edit').hidden=true;$('ob-profile-accept').textContent='Сохранить изменения';$('ob-profile-text').focus()};
-$('ob-profile-text').addEventListener('input',()=>{$('ob-profile-accept').disabled=!$('ob-profile-text').value.trim()});
-$('ob-profile-accept').onclick=()=>{const text=$('ob-profile-text').value.trim();if(!text)return;obProfile=text;obMode='profile';endOb()};
-$('ob-profile-back').onclick=renderOb;
-if(new URLSearchParams(location.search).get('preview')==='onboarding'){
- namingId='fox';confirmedIdentity={id:'fox',name:'Нокс'};$('named-media').innerHTML=characterMedia('fox','chosen-image');$('named-title').textContent='Теперь я — Нокс!';stage(byId.fox,1);show('s-named');
-}
 
 </script>
 
 <script>
 if(document.modelContext?.registerTool){try{Promise.resolve(document.modelContext.registerTool({name:'read_lumen_state',description:'Read the visible Lumen duel screen and current results.',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:true},execute(input){if(!input||typeof input!=='object'||Object.keys(input).length)throw new Error('Expected empty input');const section=[...document.querySelectorAll('section')].find(el=>!el.hidden);return {screen:section?.id,text:section?.innerText};}})).catch(()=>{});}catch{}}
-</script><script>window.LumenGameState=function(){var h=document.getElementById('human-name');return confirmedIdentity?{form:confirmedIdentity.id,lumenName:confirmedIdentity.name,userName:h?h.value:''}:null;};</script><script src="bridge.js"></script></body></html>
+</script><script>window.LumenGameState=function(){var h=document.getElementById('human-name');return confirmedIdentity?{form:confirmedIdentity.id,lumenName:confirmedIdentity.name,userName:h?h.value:null}:null;};</script><script src="bridge.js"></script></body></html>
